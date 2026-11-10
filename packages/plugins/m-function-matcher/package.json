@@ -18,7 +18,7 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/opral/inlang",
+		"url": "https://github.com/generaltranslation/inlang",
 		"directory": "packages/plugins/m-function-matcher"
 	},
 	"recommends": [
