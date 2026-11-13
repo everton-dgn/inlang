@@ -1,3 +1,9 @@
+import {
+	parseBundleDescriptions,
+	readBundleDescriptions,
+	applyBundleDescriptions,
+	syncBundleDescriptions,
+} from "./bundleDescriptions.js";
 import type { Lix } from "@lix-js/sdk";
 import type { InlangPlugin } from "../plugin/schema.js";
 import type { ProjectSettings } from "../json-schema/settings.js";
@@ -56,6 +62,7 @@ export async function loadProject(args: {
 	});
 
 	const plugins = [...(args.providePlugins ?? []), ...importedPlugins.plugins];
+	let pendingSettingsRead: Promise<Uint8Array> | undefined;
 
 	// const state = createProjectState({
 	// 	...args,
@@ -69,7 +76,16 @@ export async function loadProject(args: {
 		},
 		settings: {
 			get: async () => {
-				const file = await readLixFile(args.lix, "/settings.json");
+				// Rendering many messages can request the same settings concurrently.
+				// Share only the pending read so subsequent calls still see SQL updates.
+				if (!pendingSettingsRead) {
+					const read = readLixFile(args.lix, "/settings.json").finally(() => {
+						if (pendingSettingsRead === read) pendingSettingsRead = undefined;
+					});
+					pendingSettingsRead = read;
+				}
+				const file = await pendingSettingsRead;
+				// Parse for each caller so mutable settings are never shared.
 				return withLanguageTagToLocaleMigration(
 					JSON.parse(new TextDecoder().decode(file))
 				);
@@ -79,6 +95,8 @@ export async function loadProject(args: {
 				cloned.languageTags = cloned.locales;
 				cloned.sourceLanguageTag = cloned.baseLocale;
 
+				// A getter issued after this write must not join a preceding read.
+				pendingSettingsRead = undefined;
 				await args.lix.execute(
 					"UPDATE lix_file SET content = $1 WHERE path = $2",
 					[
@@ -96,21 +114,48 @@ export async function loadProject(args: {
 		},
 		// errors: state.errors,
 		importFiles: async ({ files, pluginKey, allowPartialImport }) => {
+			files = files.map((file) => ({
+				...file,
+				toBeImportedFilesMetadata:
+					file.toBeImportedFilesMetadata ?? file.metadata,
+			}));
 			const settingsFile = await readLixFile(args.lix, "/settings.json");
 
 			const settings = JSON.parse(
 				new TextDecoder().decode(settingsFile)
 			) as ProjectSettings;
 
-			return await importFiles({
-				files,
-				allowPartialImport,
-				pluginKey,
-				settings,
-				// TODO don't use global state, might be stale
-				plugins,
-				db,
-			});
+			const companion = files.find(
+				(file) => file.toBeImportedFilesMetadata?.inlangDescriptions
+			);
+			const previous = await readBundleDescriptions({ lix: args.lix });
+			const descriptions = companion
+				? parseBundleDescriptions(companion.content)
+				: undefined;
+			const resourceFiles = files.filter(
+				(file) => !file.toBeImportedFilesMetadata?.inlangDescriptions
+			);
+			if (resourceFiles.length > 0 || !companion) {
+				await importFiles({
+					files: resourceFiles,
+					allowPartialImport,
+					pluginKey,
+					settings,
+					plugins,
+					db,
+					companionOwnedBundleIds: companion
+						? undefined
+						: new Set(previous.keys()),
+					descriptionImport:
+						descriptions && companion
+							? { next: descriptions, previous, content: companion.content }
+							: undefined,
+				});
+			} else if (descriptions && companion) {
+				await applyBundleDescriptions({ db }, descriptions, previous, {
+					content: companion.content,
+				});
+			}
 		},
 		exportFiles: async ({ pluginKey, files }) => {
 			const settingsFile = await readLixFile(args.lix, "/settings.json");
@@ -119,7 +164,16 @@ export async function loadProject(args: {
 				new TextDecoder().decode(settingsFile)
 			) as ProjectSettings;
 
-			return (
+			const companion = await syncBundleDescriptions(
+				{
+					db,
+					lix: args.lix,
+					settings: { get: async () => settings, set: async () => {} },
+					plugins: { get: async () => plugins },
+				},
+				{ pluginKey, persist: false }
+			);
+			const resources = (
 				await exportFiles({
 					pluginKey,
 					db,
@@ -129,6 +183,7 @@ export async function loadProject(args: {
 					files,
 				})
 			).map((output) => ({ ...output, pluginKey }));
+			return companion ? [...resources, companion] : resources;
 		},
 		close: async () => {
 			await db.destroy();

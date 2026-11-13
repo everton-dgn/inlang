@@ -1,3 +1,8 @@
+---
+title: "next-intl plugin: import and export next-intl messages in your repo"
+description: "Import and export next-intl message files in your Git repo, one file per locale or per namespace. Add plugin.inlang.nextIntl with a pathPattern to project.inlang/settings.json."
+---
+
 # next-intl Plugin for Inlang
 
 This plugin enables your inlang project to read and write [next-intl](https://next-intl-docs.vercel.app/) translation files.
@@ -255,3 +260,7 @@ Run the following commands in your terminal (node and npm must be installed):
 2. `npm run dev`
 
 `npm run dev` will start the development environment, which automatically compiles the [src/index.ts](#getting-started) files to JavaScript ([dist/index.js](#getting-started)), runs tests defined in `*.test.ts` files and watches changes.
+
+## Translation descriptions
+
+The inlang SDK exposes shared translation guidance as `bundle.description`. Since this format has no native description field, the SDK automatically saves descriptions in the Git-tracked `project.inlang/descriptions.json` companion file. Runtime translation files keep their usual shape. Keep the companion with the project when sharing or converting files; SDK portable exports include it. See [the data model](../../../docs/data-model.md) for the field contract.

@@ -1,6 +1,6 @@
 {
 	"name": "@inlang/plugin-next-intl",
-	"version": "2.4.3",
+	"version": "2.4.7",
 	"type": "module",
 	"types": "./dist/index.d.ts",
 	"exports": {
@@ -18,7 +18,7 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/opral/inlang",
+		"url": "https://github.com/generaltranslation/inlang",
 		"directory": "packages/plugins/next-intl"
 	},
 	"scripts": {

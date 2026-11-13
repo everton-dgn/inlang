@@ -101,6 +101,48 @@ const project = await loadProjectFromDirectory({
 });
 ```
 
+### Loading catalog updates
+
+Use `createCatalogLoader()` when a compiler needs translation messages without
+opening a database. Each loader owns its cache for one directory project.
+
+```ts
+import { createCatalogLoader } from "@inlang/sdk/catalog";
+
+const loader = createCatalogLoader({ path: "./project.inlang" });
+const initial = await loader.load(); // { type: "reset", settings, bundles, diagnostics }
+
+// After a resource edit:
+const update = await loader.load(); // { type: "update", bundles, removedBundleIds, diagnostics }
+```
+
+A reset replaces the complete catalog. Updates contain complete changed bundles,
+including all locales and full pattern ASTs, and IDs of removed bundles. An
+unchanged catalog produces an update with empty arrays. Settings or plugin
+changes reset the catalog. Generated message and variant IDs are opaque bundle
+references; use bundle IDs as the stable translation keys.
+
+Results are detached from the loader's cache. Loads are serialized, and rejected
+loads retain the last successful state. Unreadable resource files reject before
+returning an incomplete catalog; missing files are skipped. Plugin-loading
+errors and deprecation warnings remain in `diagnostics`, which consumers should
+inspect before publishing output. Existing `importFiles()` and legacy plugins
+remain supported, including multiple importers and complete message patterns.
+Importers are treated as transformations of their declared files, metadata and
+settings. A single ordinary importer skips import and normalization when all its input bytes,
+metadata, settings and plugin implementation are unchanged. Changed resources
+still use the plugin's ordinary full import; emitting a small update does not
+imply that only changed messages were parsed internally.
+
+The loader creates no watcher or database and requires no `close()` operation.
+It does not write project metadata. Remote plugins use the network with the
+existing directory cache as an offline fallback. Pass `writePluginCache: true`
+to save downloaded plugins; cache-write failures reject. The optional `fs`
+argument supplies a Node-compatible filesystem for tests or virtual projects.
+
+Use `loadProjectFromDirectory()` for an editable project with queries, history,
+and persistence. This API leaves package dependencies unchanged.
+
 ### Next steps
 
 Go to the [API reference](#api-reference) to learn how to query messages, changes, and save the project.

@@ -2,8 +2,9 @@
  * End-to-end tests of the built CLI (`check`, `cloud`, `--help` and the
  * deprecated commands). Builds the CLI and runs it against a Paraglide-style
  * fixture (`test/fixtures/check-app`) with the workspace's message-format and
- * m-function-matcher plugins as local modules, and against a next-intl app
- * (`test/fixtures/next-intl-app`) with the workspace's next-intl plugin.
+ * m-function-matcher plugins as local modules, against a next-intl app
+ * (`test/fixtures/next-intl-app`) with the workspace's next-intl plugin and
+ * against an i18next app (`test/fixtures/i18next-app`) with the i18next plugin.
  */
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { spawn } from "node:child_process";
@@ -44,7 +45,7 @@ afterAll(() => {
 /** A copy of the fixture app with the workspace plugins, as the current directory of a run. */
 function app(
   options: {
-    fixture?: "check-app" | "next-intl-app";
+    fixture?: "check-app" | "next-intl-app" | "i18next-app";
     files?: Record<string, string | null>;
     settings?: (settings: Record<string, any>) => void;
   } = {},
@@ -57,7 +58,9 @@ function app(
   fs.mkdirSync(plugins);
   for (const name of fixture === "check-app"
     ? ["plugin-message-format", "plugin-m-function-matcher"]
-    : ["plugin-next-intl", "plugin-m-function-matcher"])
+    : fixture === "i18next-app"
+      ? ["plugin-i18next"]
+      : ["plugin-next-intl", "plugin-m-function-matcher"])
     fs.copyFileSync(
       pluginDist(`@inlang/${name}`),
       nodePath.join(plugins, `${name}.js`),
@@ -112,7 +115,7 @@ describe("inlang check", { timeout: 60_000 }, () => {
     const { code, stdout } = await run(app(), ["check", ...project]);
     expect(code).toBe(1);
     expect(stdout).toContain(
-      "Checked project.inlang · 7 messages · locales en-US, pt-BR · 2 source files in ./",
+      "Checked project.inlang · 7 messages · locales en-US, pt-BR · 3 source files in ./",
     );
     expect(stdout).toContain(
       "missing-translation (1)\n  welcome_back  pt-BR  no translation\n",
@@ -136,11 +139,13 @@ describe("inlang check", { timeout: 60_000 }, () => {
       ["check", ...project, "--unused-messages"],
     );
     expect(code).toBe(1);
+    // legacy_banner is used by the fixture's Astro component.
     expect(stdout).toContain(
-      "unused-message (3)\n  email_label\n  legacy_banner\n  password_label\n",
+      "unused-message (2)\n  email_label\n  password_label\n",
     );
     expect(stdout).not.toContain("missing-translation");
-    expect(stdout).toContain("3 findings\n  unused-message  3\n");
+    expect(stdout).not.toContain("Unsupported source format");
+    expect(stdout).toContain("2 findings\n  unused-message  2\n");
   });
 
   test("--source limits the analyzed files", async () => {
@@ -168,15 +173,15 @@ describe("inlang check", { timeout: 60_000 }, () => {
       locales: ["en-US", "pt-BR"],
       baseLocale: "en-US",
       messages: 7,
-      source: { roots: ["./"], files: 1 },
+      source: { roots: ["./"], files: 2 },
       errors: [],
       summary: {
-        findings: 6,
+        findings: 5,
         errors: 0,
         byCheck: {
           "missing-translation": 1,
           "missing-variable": 2,
-          "unused-message": 3,
+          "unused-message": 2,
         },
       },
     });
@@ -294,6 +299,52 @@ describe("inlang check", { timeout: 60_000 }, () => {
     ]);
     expect(stdout).toContain(
       "unused-message not checked: The installed @inlang/plugin-m-function-matcher can't analyze usages.\n  Unused-message check needs @inlang/plugin-m-function-matcher ≥ 2.3.0, update the module URL in settings.json: ./project.inlang/plugins/plugin-m-function-matcher@2.2.6.js",
+    );
+  });
+
+  test("i18next: reports unused messages once every usage is resolved", async () => {
+    const { code, stdout } = await run(
+      app({
+        fixture: "i18next-app",
+        files: { "src/Status.tsx": null },
+      }),
+      ["check", ...project, "--unused-messages"],
+    );
+    expect(code).toBe(1);
+    expect(stdout).toContain(
+      "unused-message (3)\n  admin:reports\n  common:nav.legacy\n  common:unused_banner\n",
+    );
+    expect(stdout).not.toContain("Paraglide");
+    expect(stdout).not.toContain("m-function-matcher");
+  });
+
+  test("i18next: a dynamic key withholds unused messages and is located", async () => {
+    const { code, stdout } = await run(app({ fixture: "i18next-app" }), [
+      "check",
+      ...project,
+      "--unused-messages",
+    ]);
+    expect(code).toBe(0);
+    expect(stdout).toContain("unused-message incomplete");
+    expect(stdout).toContain("src/Status.tsx:5:");
+    expect(stdout).toContain("Dynamic keys can't be resolved.");
+    expect(stdout).not.toContain("unused-message (");
+  });
+
+  test("tells users of an i18next plugin without usage analysis to update it", async () => {
+    const legacy = "./project.inlang/plugins/plugin-i18next@6.4.4.js";
+    const root = app({
+      fixture: "i18next-app",
+      files: {
+        [legacy]: `export default { key: "plugin.inlang.i18next", meta: { "app.inlang.ideExtension": { messageReferenceMatchers: [] } } };`,
+      },
+      settings: (settings) => {
+        settings.modules = [legacy];
+      },
+    });
+    const { stdout } = await run(root, ["check", ...project, "--unused-messages"]);
+    expect(stdout).toContain(
+      "Unused-message check needs @inlang/plugin-i18next ≥ 6.5.0, update the module URL in settings.json",
     );
   });
 

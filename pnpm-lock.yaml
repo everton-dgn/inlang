@@ -33,6 +33,9 @@ importers:
         specifier: ^0.19.2
         version: 0.19.12
     devDependencies:
+      '@inlang/plugin-i18next':
+        specifier: workspace:*
+        version: link:../plugins/i18next
       '@inlang/plugin-m-function-matcher':
         specifier: workspace:*
         version: link:../plugins/m-function-matcher
@@ -138,6 +141,9 @@ importers:
       '@types/node':
         specifier: ^22.5.1
         version: 22.15.33
+      i18next:
+        specifier: 26.4.2
+        version: 26.4.2(typescript@5.9.3)
       prettier:
         specifier: ^3.5.1
         version: 3.6.2
@@ -292,6 +298,9 @@ importers:
 
   packages/plugins/i18next:
     dependencies:
+      '@babel/parser':
+        specifier: ^7.28.5
+        version: 7.28.5
       '@inlang/sdk':
         specifier: workspace:*
         version: link:../../sdk
@@ -15598,6 +15607,10 @@ snapshots:
   i18next@26.4.2(typescript@5.7.3):
     optionalDependencies:
       typescript: 5.7.3
+
+  i18next@26.4.2(typescript@5.9.3):
+    optionalDependencies:
+      typescript: 5.9.3
 
   iconv-lite@0.6.3:
     dependencies:

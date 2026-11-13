@@ -1,11 +1,43 @@
 # @inlang/sdk
 
+## 4.2.0
+
+### Minor Changes
+
+- 6c909cd: Add shared bundle descriptions for translator and agent guidance. Preserve descriptions through SDK queries, migrations, imports, snapshots and project saves, with a Git-tracked companion file for formats without native metadata. Use descriptions as context for OpenAI and DeepL CLI translations.
+
+## 4.1.2
+
+### Patch Changes
+
+- 053a10b: Share concurrent project settings reads to avoid overflowing the Lix worker queue when rendering large projects. Each caller receives independent settings, and subsequent reads still pick up settings writes and direct SQL updates.
+
+## 4.1.1
+
+### Patch Changes
+
+- 8042b14: Load catalogs with plural, select and other multi-variant messages through the direct catalog path. Until now a single message with selectors, matches or more than one variant sent the whole import through the general importer, which generates a UUIDv7 for every message and variant and maintains merge indexes. Variants with repeated matches, which that importer merges, still use it. The loaded catalog is unchanged apart from the opaque generated message and variant IDs.
+
+  With 20,000 keys in three locales, 4% of them plurals, `createCatalogLoader().load()` after one edited message fell from 674 ms to 340 ms (medians of six paired rounds on a shared machine).
+
+- 2d066b5: `createCatalogLoader` imports the messages of a legacy `loadMessages` plugin in one import per run of distinct bundles instead of one import per message. Each import copied and re-indexed the whole catalog, so a catalog of 6,366 messages in three locales took 40 s to load; it now takes 0.17 s. A repeated bundle still upserts onto the earlier one in order, so precedence and variant order are unchanged. Plugin versions that only implement `loadMessages`, such as `@inlang/plugin-message-format@2`, `@inlang/plugin-i18next@4`, `@inlang/plugin-json@4` and `@inlang/plugin-next-intl@1`, take this path.
+- 0ab2a1e: Reject a directory save if a declared translation resource changes while its plugin exports. Files edited, deleted, or created during export keep their external content instead of being overwritten, including otherwise unchanged verbatim exports.
+
+## 4.1.0
+
+### Minor Changes
+
+- a5c53fa: Add `createCatalogLoader({ path, fs? })` from `@inlang/sdk/catalog` for stateful directory loading without opening a database. Call `load()` repeatedly: the first load and settings/plugin changes return a complete `reset`; later loads return an `update` containing complete changed bundles and removed bundle IDs. All locales and the full pattern AST are preserved. The unreleased snapshot API is replaced rather than retained as a compatibility alias.
+
+  Each loader owns source-byte and bundle-fingerprint caches. Unchanged inputs skip plugin import and normalization for a single ordinary importer. Loads are serialized, returned ASTs do not alias cache state, and importer/resource failures retain the last successful state. Existing `importFiles()` and legacy plugins remain supported. Remote plugin caches are read-only unless `writePluginCache: true` is supplied; no project metadata is written.
+
+  In a local three-locale SDK-only benchmark, unchanged reloads fell from 40.3 ms to 1.4 ms at 6,400 keys and from 103.2 ms to 2.3 ms at 13,300 keys (97–98% less time). A single translation edit returns one complete bundle instead of all 13,300. Edited resources still use the ordinary full importer: at 13,300 keys the first edited reload measured 132.6 ms versus 79.3 ms for the previous snapshot API, and an input edit measured 94.3 ms versus 80.0 ms. This refactor establishes change batches; it does not claim the incremental-parser prototype's speedup or end-to-end compiler improvement. Figures are medians of five serial, rotated fresh-process trials on Node 24.22.1, with identical plugin code and final AST equality checks. See `packages/sdk/benchmarks/catalog/stateful` for raw results, validation and limitations.
+
 ## 4.0.4
 
 ### Patch Changes
 
 - 9725173: Improved loading, reading, and exporting projects with hundreds of thousands of translations, with lower memory use for large reads.
-
   - Large directory loads and partial imports process data in batches. Imports remain atomic by default; `allowPartialImport: true` keeps earlier successful batches if a later batch fails.
   - Project exports preserve a consistent view of files and translations.
 
@@ -53,7 +85,6 @@
   | `"variant.messageId"`   | `"inlang_variant.message_id"`  |
 
   Also changed:
-
   - `selectBundleNested()` returns messages with `bundle_id` and variants with `message_id`, and filters with `.where("inlang_bundle.id", "=", id)` (`"bundle.id"` throws).
   - `createMessage()` and `createVariant()` return `bundle_id` and `message_id`.
   - `insertBundleNested()`, `upsertBundleNested()` and `updateBundleNested()` take snake_case rows, as do `insertInto()` and `updateTable()`.
@@ -70,7 +101,6 @@
 
 - f45a761: Add the `empty-variant` check: a variant (form) whose pattern is empty while another variant of the message has text, e.g. an ICU `=0 {}`, is reported with its `variantId` and `matches`, the reference locale's included. `checkTranslation()` reports it as `{ type: "empty-variant" }`.
 - 356a50a: `exportFiles` receives the files it overwrites, so that plugins can keep the text of unchanged entries.
-
   - The plugin API's `exportFiles` has a new optional argument `files`: the current content of the files that `toBeImportedFiles` lists, as `{ path, locale, content, metadata? }` (type `ExistingFile`). Only files that exist are passed. Plugins that ignore it work as before, and plugins that use it still work on hosts that don't pass it.
   - `saveProjectToDirectory` reads the files of `toBeImportedFiles` from disk and passes them to `exportFiles`.
   - `project.exportFiles({ pluginKey, files })` passes `files` through, for apps that write the exported files themselves.
@@ -97,7 +127,7 @@
   A file counts as read only as the locale (and namespace) it was read or written as, so a file that a settings change assigns to another locale (e.g. a new base locale for `values/`) is not emptied.
 
 - fb83c18: Translation checks are more precise: variables and markup are compared with the reference forms that have the same exact numbers and select values (plural categories mean different numbers per locale, so a plural's input is needed in every form that isn't one number), a form for one exact number may leave out only that number's input variable, and an empty reference expects no variables. A translation that can't choose like the reference (no selector for a select's values, no plural the locale needs, or no exact-number selector for the reference's `=0`) gets the new `missing-selector` diagnostic with the `values` it can't express. Plural categories only millions select (French, Spanish, Italian, Portuguese, Catalan `many`) are no longer required; `pluralRules().requiredCategories` lists the required ones. Locales such as `pt_BR` are read as `pt-BR`. Full scans read patterns with one query per table, lowering peak memory.
-- 3e9bd54: Usage analysis issues can locate the construct that makes the analysis incomplete. `UsageIssue` has optional `start` and `end` positions (1-based lines, 0-based columns, as for references), which `checkProject` and `findUsages` pass through. The m-function matcher reports one issue per unresolved construct, in source order, e.g. `src/Field.tsx` line 14 for `` m[`${fieldName}_label`]() ``, instead of one issue per reason and file.
+- 3e9bd54: Usage analysis issues can locate the construct that makes the analysis incomplete. `UsageIssue` has optional `start` and `end` positions (1-based lines, 0-based columns, as for references), which `checkProject` and `findUsages` pass through. The m-function matcher reports one issue per unresolved construct, in source order, e.g. `src/Field.tsx` line 14 for ``m[`${fieldName}_label`]()``, instead of one issue per reason and file.
 
 ### Patch Changes
 
@@ -205,7 +235,6 @@
 ### Minor Changes
 
 - 6680ac1: fix `saveProjectToDirectory` throwing `pathPattern.replace is not a function` when a plugin's `pathPattern` is a namespace object (https://github.com/opral/inlang/issues/4356)
-
   - `ExportFile` has a new optional `metadata` field — the counterpart of `ImportFile.toBeImportedFilesMetadata`. Plugins can use it to pass information to the writer, e.g. the namespace an exported file belongs to.
   - `saveProjectToDirectory` resolves namespaced `pathPattern` objects (`Record<namespace, pattern>`) via `ExportFile.metadata.namespace` and writes each exported file to the path its namespace pattern describes. Files without a resolvable namespace fall back to being written by `file.name` instead of throwing.
   - `@inlang/plugin-i18next` now provides `metadata: { namespace }` for namespaced export files. Saving a multi-namespace i18next project requires this plugin version (older plugin versions no longer crash but fall back to writing `{namespace}-{locale}.json` files relative to the project directory).
@@ -247,7 +276,6 @@
 - 6defee0: Extend the SDK pattern AST with richer markup metadata.
 
   Added support for markup `options` and `attributes` on:
-
   - `markup-start`
   - `markup-end`
   - `markup-standalone`

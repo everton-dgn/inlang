@@ -1,54 +1,71 @@
 name: publish npm packages
 
-env:
-  NX_CLOUD_ACCESS_TOKEN: ${{ vars.NX_CLOUD_ACCESS_TOKEN }}
-
 on:
-
   workflow_dispatch:
-
-  # trigger this workflow when the CI workflow is completed
+    inputs:
+      publish:
+        description: Publish versioned packages (false verifies authentication and packaging only)
+        type: boolean
+        default: false
   workflow_run:
     workflows: ["Continuous Integration"]
     branches: [main]
-    types:
-      - completed
+    types: [completed]
 
 permissions:
-  id-token: write
   contents: read
 
-jobs: 
-  publish:
-    # Allow manual runs, otherwise require CI success on main
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v4
+concurrency:
+  group: npm-publishing
+  cancel-in-progress: false
 
-      - name: Setup Pnpm
+jobs:
+  publish:
+    if: >-
+      github.repository == 'generaltranslation/inlang' &&
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository))
+    runs-on: ubuntu-24.04
+    environment: publishing
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 10.23.0
 
-      - name: Setup Node.js 22
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24
-          registry-url: "https://registry.npmjs.org"
-          cache: "pnpm"
+          registry-url: https://registry.npmjs.org
 
-        # Conditional steps based on the check
-      - name: Install Dependencies
+      - name: Install dependencies from lockfile
         run: pnpm install --frozen-lockfile
 
-      - name: Upgrade npm for trusted publishing
-        run: npm install -g "npm@^11.5.1"
+      - name: Install pinned npm with trusted publishing support
+        run: npm install --global npm@11.21.2
 
-      - name: Build
-        run: pnpm build
+      - name: Verify every package's trusted publisher without releasing
+        run: node scripts/verify-npm-publishing.mjs
 
-      - name: Publish packages
+      - name: Build published packages and their workspace dependencies
+        run: node scripts/verify-npm-publishing.mjs --build
+
+      - name: Verify package archives without releasing
+        run: node scripts/verify-npm-publishing.mjs --pack
+
+      - name: Publish versioned packages with OIDC
+        if: github.event_name == 'workflow_dispatch' && inputs.publish
         run: pnpm exec changeset publish

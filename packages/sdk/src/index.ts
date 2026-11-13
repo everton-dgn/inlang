@@ -1,3 +1,13 @@
+export {
+	createCatalogLoader,
+	type CreateCatalogLoaderArgs,
+	type CatalogLoader,
+	type CatalogUpdate,
+} from "./project/createCatalogLoader.js";
+export {
+	ResourceFileImportError,
+	WarningDeprecatedLintRule,
+} from "./project/directoryPlugins.js";
 export { newProject } from "./project/newProject.js";
 export { openProject, type OpenProjectArgs } from "./project/openProject.js";
 export { loadProjectInMemory } from "./project/loadProjectInMemory.js";
@@ -32,3 +42,10 @@ export * from "./database/schema.js";
 export { createMessageV1 } from "./migrations/v2/createMessageV1.js";
 
 export * from "./checks/index.js";
+
+export {
+	syncBundleDescriptions,
+	parseBundleDescriptions,
+	encodeBundleDescriptions,
+	DESCRIPTION_FILE,
+} from "./project/bundleDescriptions.js";

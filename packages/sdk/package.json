@@ -1,6 +1,6 @@
 {
 	"name": "@inlang/sdk",
-	"version": "4.0.4",
+	"version": "4.2.0",
 	"type": "module",
 	"license": "MIT",
 	"publishConfig": {
@@ -9,11 +9,12 @@
 	"homepage": "https://inlang.com/documentation/sdk",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/opral/inlang"
+		"url": "https://github.com/generaltranslation/inlang"
 	},
 	"types": "./dist/index.d.ts",
 	"exports": {
 		".": "./dist/index.js",
+		"./catalog": "./dist/project/createCatalogLoader.js",
 		"./browser": "./dist/browser.js",
 		"./lix": "./dist/lix/index.js",
 		"./settings-schema": "./src/json-schema/settings.ts",

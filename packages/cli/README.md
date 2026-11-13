@@ -1,23 +1,25 @@
 ---
-title: inlang CLI - Localization Automation for CI/CD
-description: Automate translation workflows with machine translation, translation checks, and CI/CD integration. Supports JSON, i18next, next-intl, and more.
+title: "inlang CLI: check translations in CI and machine translate"
+description: "Run npx @inlang/cli check to find missing, empty and unused translations. It exits with code 1 on findings. Machine translate missing messages with one command. No inlang account."
 og:image: https://cdn.jsdelivr.net/gh/opral/inlang@latest/packages/cli/assets/cli-banner.svg
 ---
 
 # @inlang/cli
 
-Automate localization tasks in your CI/CD pipeline.
+Find missing translations, wrong variables and unused messages. Fail your CI when a translation is broken.
 
 ```bash
-npx @inlang/cli [command]
+npx @inlang/cli check --project ./project.inlang
 ```
+
+Read the announcement: [inlang check: find missing translations and unused keys in CI](https://inlang.com/blog/inlang-check).
 
 ![inlang CLI terminal showing machine translate and check commands](https://cdn.jsdelivr.net/gh/opral/inlang@latest/packages/cli/assets/cli-banner.svg)
 
 ## Features
 
 - **Machine Translation** — Translate missing messages automatically via a free, third-party translation service by default, or with your own Google Cloud Translation or DeepL API key
-- **Checks** — Find missing translations, missing variables and unused messages before they ship
+- **Checks** — Find missing translations, missing variables and unused messages before they ship. Exits with `1` on findings, so CI fails. See [`check`](#check)
 - **CI/CD Ready** — Run non-interactively with `--force` for pipelines
 - **Plugin System** — Supports JSON, i18next, next-intl, ICU message format, and more
 
@@ -90,6 +92,17 @@ Or use DeepL:
 ```bash
 export INLANG_MACHINE_TRANSLATE_PROVIDER="deepl"
 export INLANG_DEEPL_API_KEY="your-deepl-api-key"
+```
+
+Or use OpenAI, optionally selecting a model and reasoning effort:
+
+```bash
+export INLANG_MACHINE_TRANSLATE_PROVIDER="openai"
+export INLANG_OPENAI_API_KEY="your-openai-api-key"
+# Optional: defaults to gpt-6-luna
+export INLANG_OPENAI_MODEL="your-model"
+# Optional: supported values depend on the selected model
+export INLANG_OPENAI_REASONING_EFFORT="none"
 ```
 
 This creates `messages/de.json` and `messages/fr.json` with translations.
@@ -201,11 +214,13 @@ The translate command has the following options:
 - `--locale <source>`: Specifies the base locale.
 - `--targetLocales <targets...>`: Specifies the target locales as comma seperated list (e.g. sk,zh,pt-BR).
 
-The translations are performed with the configured provider (`INLANG_MACHINE_TRANSLATE_PROVIDER`). The community-operated translation service at translate.demosjarco.dev (not affiliated with inlang) is used by default; set `INLANG_GOOGLE_TRANSLATE_API_KEY` or `INLANG_DEEPL_API_KEY` to use your own provider, and optionally `DEMOSJARCO_TRANSLATE_MODEL` to pin a model for the community-operated service (and `DEMOSJARCO_TRANSLATE_ZDR=true` to request Zero Data Retention from it). If that service is unavailable, throttled, or returns an unparseable response, the command fails with a non-zero exit code instead of reporting success. The translated messages are added to the respective language resources. Finally, the updated resources are written back to the file system.
+When a bundle has a description, OpenAI and DeepL receive it as translation context. Other providers translate the source text without that guidance. Descriptions are preserved in the project and are never included in translated strings.
+
+The translations are performed with the configured provider (`INLANG_MACHINE_TRANSLATE_PROVIDER`). The community-operated translation service at translate.demosjarco.dev (not affiliated with inlang) is used by default; set `INLANG_GOOGLE_TRANSLATE_API_KEY`, `INLANG_DEEPL_API_KEY`, or `INLANG_OPENAI_API_KEY` to use your own provider. You can also set `DEMOSJARCO_TRANSLATE_MODEL` to pin a model for the community-operated service (and `DEMOSJARCO_TRANSLATE_ZDR=true` to request Zero Data Retention from it). If the selected provider is unavailable or throttles requests, the command fails with a non-zero exit code instead of reporting success. OpenAI Responses that are incomplete are not accepted as translations and also cause the command to fail. The translated messages are added to the respective language resources. Finally, the updated resources are written back to the file system.
 
 ## `check`
 
-Checks the project's translations and, for Paraglide and next-intl projects, finds messages the source code no longer uses.
+Checks the project's translations and, for Paraglide JS, i18next and next-intl projects, finds messages the source code no longer uses.
 
 ```sh
 npx @inlang/cli check --project ./project.inlang
@@ -247,6 +262,31 @@ All checks run by default. Pass one or more check flags to run only those:
 | `--unused-messages`      | messages the source code doesn't use (needs a usage-analysis plugin)  |
 
 The project's settings and plugin errors are always reported.
+
+### What works with which library
+
+| Check                                                   | i18next | next-intl | Paraglide JS | JSON, ICU and other plugins |
+| ------------------------------------------------------- | :-----: | :-------: | :----------: | :-------------------------: |
+| Missing and empty translations, variables, plural forms |   yes   |    yes    |     yes      |             yes             |
+| Unused messages (`--unused-messages`)                   |   yes   |    yes    |     yes      |             no              |
+
+Unused messages need a plugin that can read your source code. See [Unused messages](#unused-messages).
+
+### Coming from `validate` or `lint`?
+
+`inlang validate` and `inlang lint` are deprecated and hidden from `--help`. Use `inlang check` instead.
+
+- `validate` only reported settings and plugin errors. `check` reports those too, plus translation problems and unused messages.
+- `lint` has done nothing since CLI v3, because the v1 lint rules were removed in the v2 rewrite. It still exits with `0`, so old scripts do not break. `check` replaces it.
+
+Replace the command in your CI:
+
+```diff
+- npx @inlang/cli lint --project ./project.inlang
++ npx @inlang/cli check --project ./project.inlang
+```
+
+`check` exits with `1` on findings. Add `--no-fail` to keep the old behavior while you fix them.
 
 ### Check options
 
@@ -323,6 +363,7 @@ jq '[.diagnostics[] | select(.checkId == "missing-translation") | .locale] | gro
 Unused messages need the source code and a plugin that analyzes message usages:
 
 - [`@inlang/plugin-m-function-matcher`](https://inlang.com/m/632iow21/plugin-inlang-mFunctionMatcher) 2.3.0 or later for Paraglide's `m.message_key()`.
+- [`@inlang/plugin-i18next`](https://inlang.com/m/kl95463j) 6.5.0 or later for i18next's `t("key")` from `useTranslation`, `getFixedT` and `i18next.t`, and `<Trans i18nKey="key">`, in `.ts`, `.tsx`, `.js`, `.jsx` and `.mjs` files. Namespaces, plurals, context and keys written as constants (`t(KEYS.title)`) are resolved. Dynamic keys, `keyPrefix`, `returnObjects`, `fallbackNS`, custom separators, translation files read directly and Vue, Svelte, Astro and CommonJS files that use i18next make the analysis incomplete.
 - [`@inlang/plugin-next-intl`](https://inlang.com/m/193hsyds/plugin-inlang-nextIntl) 2.4.0 or later for next-intl's `useTranslations("Home")` and `getTranslations("Home")` with `t("title")`, `t.rich()` and `t.markup()`, in `.ts`, `.tsx`, `.js`, `.jsx` and `.mdx` files.
 
 With an older version, `check` asks you to update the module URL in `settings.json`.

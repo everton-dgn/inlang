@@ -1,4 +1,6 @@
 ---
+title: "inlang message format plugin: store translations as JSON in your repo"
+description: "Store translations as JSON files in your Git repo, with variables, plurals and variants. Add plugin.inlang.messageFormat with a pathPattern to project.inlang/settings.json. The recommended plugin for new projects."
 og:title: Inlang Message Format Plugin
 og:description: A storage plugin for inlang that stores messages in JSON files per language. Supports variables, pluralization, and nested structures.
 ---
@@ -453,3 +455,17 @@ Complex messages (with variants/pluralization) must be wrapped in an array:
 	"correct": [{ "match": { "count=one": "One" } }]
 }
 ```
+
+## Translation descriptions
+
+On SDK hosts supporting bundle descriptions, put `description` on the first complex object of the source-locale message:
+
+```json
+{
+  "save": [{ "description": "Checkout button; confirms payment immediately.", "match": { "*": "Pay now" } }]
+}
+```
+
+This maps to the shared `bundle.description`. Plain source strings become complex entries when a description is added; target strings remain unchanged. Export writes one description on the first source entry. Conflicting descriptions for the same source message are rejected. Removing the source description clears it; importing only target locales leaves it unchanged. Existing target descriptions remain file metadata when editing the same files.
+
+Change the base locale through a loaded project’s settings and save the project before reopening it. If editing `baseLocale` directly in `settings.json`, move shared guidance into the new source entries or `project.inlang/descriptions.json` in the same change. A fresh directory load cannot identify the former source locale and never promotes target-only notes automatically.

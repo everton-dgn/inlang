@@ -1,5 +1,41 @@
 # @inlang/plugin-m-function-matcher
 
+## 2.4.3
+
+### Patch Changes
+
+- Updated dependencies [6c909cd]
+  - @inlang/sdk@4.2.0
+
+## 2.4.2
+
+### Patch Changes
+
+- Updated dependencies [053a10b]
+  - @inlang/sdk@4.1.2
+
+## 2.4.1
+
+### Patch Changes
+
+- Updated dependencies [8042b14]
+- Updated dependencies [2d066b5]
+- Updated dependencies [0ab2a1e]
+  - @inlang/sdk@4.1.1
+
+## 2.4.0
+
+### Minor Changes
+
+- cb8e7ee: Analyze usages in Astro (`.astro`) files: frontmatter and inline scripts outside expressions as TypeScript, plus template and attribute `{…}` expressions, backtick attribute interpolations and nested Astro shorthand attributes, with references located in the original file. Single- and double-quoted attribute values, `<style>` blocks and HTML comments are literal; external scripts (including self-closing tags and expression or unquoted `src` values), scripts nested inside expressions, and input the scanner cannot delimit keep the analysis incomplete.
+
+  Support HTML void elements inside expressions, preserve regex literals when delimiting expressions/frontmatter, and distinguish capitalized Script components and non-executable script data from native JavaScript scripts.
+
+### Patch Changes
+
+- Updated dependencies [a5c53fa]
+  - @inlang/sdk@4.1.0
+
 ## 2.3.4
 
 ### Patch Changes
@@ -39,7 +75,7 @@
 
 ### Patch Changes
 
-- 3e9bd54: Usage analysis issues can locate the construct that makes the analysis incomplete. `UsageIssue` has optional `start` and `end` positions (1-based lines, 0-based columns, as for references), which `checkProject` and `findUsages` pass through. The m-function matcher reports one issue per unresolved construct, in source order, e.g. `src/Field.tsx` line 14 for `` m[`${fieldName}_label`]() ``, instead of one issue per reason and file.
+- 3e9bd54: Usage analysis issues can locate the construct that makes the analysis incomplete. `UsageIssue` has optional `start` and `end` positions (1-based lines, 0-based columns, as for references), which `checkProject` and `findUsages` pass through. The m-function matcher reports one issue per unresolved construct, in source order, e.g. `src/Field.tsx` line 14 for ``m[`${fieldName}_label`]()``, instead of one issue per reason and file.
 - Updated dependencies [5c0a84b]
 - Updated dependencies [2390c5a]
 - Updated dependencies [f45a761]
@@ -317,7 +353,6 @@
   If you still want to use Sherlock v1, please use the previous major version of the plugin. For Sherlock itself, [please pin the version to `1.x.x`](https://github.com/microsoft/vscode-docs/blob/vnext/release-notes/v1_91.md#extension-install-options) in the VS Code extension settings.
 
   ### Breaking changes
-
   - Lint rules are now polyfilled (and therefore may work different), as we are currently reworking how lint rules are working with [Lix Validation Rules](https://lix.dev).
   - The `messageId` parameter in the `extractMessages` function has been renamed to `bundleId`. This change is due to the new API in Sherlock v2. If you are using the `extractMessages` function, please update the parameter name to `bundleId`.
 

@@ -1,4 +1,6 @@
 ---
+title: "ICU MessageFormat plugin: import and export ICU JSON in your repo"
+description: "Import and export ICU MessageFormat v1 JSON files in your Git repo, with selects, plurals and selectordinal. Add plugin.inlang.icu-messageformat-1 with a pathPattern to project.inlang/settings.json."
 og:title: ICU MessageFormat v1 Plugin
 og:description: Storage plugin for inlang that reads and writes ICU MessageFormat v1 JSON files. Supports selects, plurals, selectordinal, offsets, and formatter styles.
 ---
@@ -106,3 +108,7 @@ If you need a literal apostrophe, use `''` (two single quotes).
 
 - Export is canonicalized. Output is semantically equivalent, but whitespace and formatting may differ from the original source.
 - Tags/markup are treated as plain text by the parser.
+
+## Translation descriptions
+
+The inlang SDK exposes shared translation guidance as `bundle.description`. Since this format has no native description field, the SDK automatically saves descriptions in the Git-tracked `project.inlang/descriptions.json` companion file. Runtime translation files keep their usual shape. Keep the companion with the project when sharing or converting files; SDK portable exports include it. See [the data model](../../../docs/data-model.md) for the field contract.

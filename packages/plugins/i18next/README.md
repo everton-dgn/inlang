@@ -1,3 +1,8 @@
+---
+title: "i18next plugin: import and export i18next JSON in your repo"
+description: "Import and export i18next JSON files in your Git repo. Add plugin.inlang.i18next with a pathPattern to project.inlang/settings.json. Also finds unused keys with inlang check."
+---
+
 # i18next Plugin for Inlang
 
 This plugin enables your inlang project to read and write [i18next](https://inlang.com/m/kl95463j) translation files.
@@ -10,7 +15,7 @@ If you're using i18next for internationalization, this plugin lets you:
 
 - **Manage translations** with [Fink](https://fink.inlang.com) – a translation editor for collaborating with translators
 - **Get inline previews** with [Sherlock](https://inlang.com/m/r7kp499g/app-inlang-ideExtension) – a VS Code extension that shows translations directly in your code
-- **Lint translations** with [inlang CLI](https://inlang.com/m/2qj2w8pu/app-inlang-cli) – catch missing translations, unused keys, and other issues
+- **Lint translations** with [inlang CLI](https://inlang.com/m/2qj2w8pu/app-inlang-cli) – catch missing translations, wrong variables, and unused keys with `inlang check`
 - **Automate workflows** with the inlang SDK – build custom tooling around your translations
 
 ## How it works
@@ -18,6 +23,26 @@ If you're using i18next for internationalization, this plugin lets you:
 The plugin reads and writes i18next JSON files, preserving your existing file structure (nested or flat keys, namespaces, plurals). It also tells Sherlock how to detect `t()` function calls in your code so you see inline translation previews.
 
 If you use [locize](https://locize.com/) as a hosted TMS for i18next, you can keep using the same i18next resources. The plugin lets inlang tools work alongside that setup.
+
+## Find unused keys
+
+`inlang check --unused-messages` reads your source code and reports keys that no code uses. It understands `t("key")` from `useTranslation`, `getFixedT` and `i18next.t`, `$t("key")` of i18next-vue, `<Trans i18nKey="key">`, `<Translation>`, namespaces (`useTranslation("ns")`, `"ns:key"` and the `ns` option), plurals and context.
+
+Keys can be constants: `t(TITLE)`, `t(KEYS.nav.home)`, ``t(`${PREFIX}.title`)`` and enum members work when they are a `const` with a static value in the same file or in a file you import by a relative path (or `@/`, `~/`, `#/` when only one file matches). A `let`, a function parameter, a call or an import from a package is dynamic.
+
+It only reports a key as unused when every usage in your code can be resolved. These make the result incomplete, and `inlang check` shows the file and line:
+
+- keys built at runtime, such as ``t(`status.${status}`)``, or constants the analyzer can't follow, such as a barrel re-export (`export * from`)
+- `keyPrefix`, `returnObjects`, `fallbackNS` and custom separators
+- options that aren't an object literal, such as `t("menu", options)`, `{ ...options }` or `tOptions={options}`, because they can hold `returnObjects` or `keyPrefix`
+- translators passed to other functions, such as `render(t)`
+- translation files read directly, including the `sourceLanguageFilePath` file: `en.title` of an imported `en.json`, `fs.readFileSync("locales/en.json")`, `i18n.store` and `i18n.options.resources`. Handing a file to i18next (`resources: { en: { translation: en } }`, `addResourceBundle`) is fine
+- `<Trans>` without `i18nKey`
+- Vue, Svelte, Astro and CommonJS files that use i18next
+
+```sh
+npx @inlang/cli check --project ./project.inlang --unused-messages --source ./src
+```
 
 # Supported i18next Features
 
@@ -348,3 +373,7 @@ Run the following commands in your terminal (node and npm must be installed):
 2. `npm run dev`
 
 `npm run dev` will start the development environment which automatically compiles the [src/index.ts](#getting-started) files to JavaScript ([dist/index.js](#getting-started)), runs tests defined in `*.test.ts` files and watches changes.
+
+## Translation descriptions
+
+The inlang SDK exposes shared translation guidance as `bundle.description`. Since this format has no native description field, the SDK automatically saves descriptions in the Git-tracked `project.inlang/descriptions.json` companion file. Runtime translation files keep their usual shape. Keep the companion with the project when sharing or converting files; SDK portable exports include it. See [the data model](../../../docs/data-model.md) for the field contract.

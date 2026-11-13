@@ -1,6 +1,6 @@
 {
 	"name": "@inlang/plugin-m-function-matcher",
-	"version": "2.3.4",
+	"version": "2.4.3",
 	"type": "module",
 	"types": "./dist/index.d.ts",
 	"exports": {
@@ -18,7 +18,7 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/opral/inlang",
+		"url": "https://github.com/generaltranslation/inlang",
 		"directory": "packages/plugins/m-function-matcher"
 	},
 	"recommends": [

@@ -1,6 +1,6 @@
 {
 	"name": "@inlang/plugin-i18next",
-	"version": "6.4.4",
+	"version": "6.5.3",
 	"type": "module",
 	"types": "./dist/index.d.ts",
 	"exports": {
@@ -18,7 +18,7 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/opral/inlang",
+		"url": "https://github.com/generaltranslation/inlang",
 		"directory": "packages/plugins/i18next"
 	},
 	"scripts": {
@@ -30,6 +30,7 @@
 		"clean": "rm -rf ./dist ./node_modules"
 	},
 	"dependencies": {
+		"@babel/parser": "^7.28.5",
 		"@inlang/sdk": "workspace:*",
 		"@sinclair/typebox": "0.31.28"
 	},
